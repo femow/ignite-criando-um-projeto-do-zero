@@ -9,6 +9,9 @@ import commonStyles from '../styles/common.module.scss';
 import { PostItem } from '../components/postItem';
 
 import styles from './home.module.scss';
+import { RichText } from 'prismic-dom';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 export interface Post {
   uid?: string;
@@ -17,6 +20,7 @@ export interface Post {
     title: string;
     subtitle: string;
     author: string;
+    content: string;
   };
 }
 
@@ -30,7 +34,37 @@ interface HomeProps {
 }
 
 export default function Home({ postsPagination }: HomeProps ) {
-  const { next_page, results: posts } = postsPagination;
+  const [nextPage, setNextPage] = useState(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useEffect(() => {
+    const { next_page, results } = postsPagination;
+
+    setPosts(results);
+    setNextPage(next_page)
+  }, []);
+
+  const handleLoadMore = () => {
+    fetch(nextPage)
+    .then(resp => resp.json())
+    .then(data => {
+      const dataResults = data.results.map(post => {
+        const { uid, data, first_publication_date } = post;
+    
+        return {
+          uid,
+          first_publication_date: format(
+            new Date(first_publication_date),
+              "dd MMM yyyy",
+              { locale: ptBR }
+          ),
+          data
+        }
+      })
+      setPosts(posts.concat(dataResults))
+      setNextPage(data.next_page)
+    })
+  }
 
   return (
     <>
@@ -41,8 +75,13 @@ export default function Home({ postsPagination }: HomeProps ) {
       <main className={styles.container}>
         <Image src="/static/images/Logo.png" alt="logo" width="240" height="26" />
         <div className={styles.posts}>
+          { posts.map(post => <PostItem post={post}/>) }
           {
-            posts.map(post => <PostItem post={post}/>)
+            nextPage &&
+            <button 
+              className={styles.loadmore}
+              onClick={handleLoadMore}
+            >Carregar mais posts</button>
           }
         </div>
       </main>
@@ -52,19 +91,20 @@ export default function Home({ postsPagination }: HomeProps ) {
 
 export const getStaticProps = async () => {
   const prismic = getPrismicClient({});
-  const postsResponse = await prismic.getByType('post');
-  const posts = postsResponse.results.map(post => ({
-      ...post,
+  const postsResponse = await prismic.getByType('post', { pageSize: 1 });
+  const posts = postsResponse.results.map(post => {
+    const { uid, data, first_publication_date } = post;
+
+    return {
+      uid,
       first_publication_date: format(
-        new Date(post.first_publication_date),
-        "dd/MM/yyyy",
-        { locale: ptBR }
-      )
-    })
-  )
-  
-  console.log(posts);
-  
+        new Date(first_publication_date),
+          "dd MMM yyyy",
+          { locale: ptBR }
+      ),
+      data
+    }
+  })
 
   return {
     props: {

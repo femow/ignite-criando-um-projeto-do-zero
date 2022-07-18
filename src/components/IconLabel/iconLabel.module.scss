@@ -1,0 +1,10 @@
+.container {
+    display: flex;
+    justify-content: center;
+    margin-right: 2rem;
+    margin-bottom: 4rem;
+
+    :first-child {
+        margin-right: .5rem;
+    }
+}
